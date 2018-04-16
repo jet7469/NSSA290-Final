@@ -1,4 +1,5 @@
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.JButton;
@@ -10,36 +11,31 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-
+import javax.swing.JTextPane;
 
 public class ClientGUI extends JFrame implements ActionListener {
    
    private JMenuBar jmb;
    private JMenu jmFile;
-   private JMenuItem jmiDisconnect;
-   private JMenuItem jmiExit;
+   protected JMenuItem jmiDisconnect;
+   protected JMenuItem jmiExit;
    
    private JPanel jpChat;
-   private JTextArea jtaChat;
+   protected JTextPane jtpChat;
    private JScrollPane jspChat;
-   
+  
    private JPanel jpControls;
-   private JTextArea jtaMessage;
+   protected JTextArea jtaMessage;
    private JScrollPane jspMessage;
-   private JButton jbSend;
-
-   public static void main (String [] args) {
-      new ClientGUI();
-      
-      //TODO: Display dialog asking for protocol and username when GUI opens
-   }
+   protected JButton jbSend;
    
-   public ClientGUI() {
+   public ClientGUI(Client client) {
       //set up frame
       setTitle("Chat");
       setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
       setLayout(new BorderLayout());
       setSize(700, 600);
+      setMinimumSize(new Dimension(700, 600));
       setLocationRelativeTo(null);    
       
       //menu bar
@@ -55,10 +51,12 @@ public class ClientGUI extends JFrame implements ActionListener {
       
       //chat area
       jpChat = new JPanel();
-      jtaChat = new JTextArea(30,50);
-      jtaChat.setEditable(false);
-      jtaChat.setLineWrap(true);
-      jspChat = new JScrollPane(jtaChat);
+      jtpChat = new JTextPane();
+      jpChat.setLayout(null);
+      jpChat.setSize(new Dimension(700, 450));
+      jtpChat.setEditable(false);
+      jspChat = new JScrollPane(jtpChat);
+      jspChat.setBounds(20,20,660,430);
       jspChat.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
       jpChat.add(jspChat);
       add(jpChat, BorderLayout.CENTER);
@@ -76,9 +74,10 @@ public class ClientGUI extends JFrame implements ActionListener {
       
       
       //actionlisteners
-      jmiDisconnect.addActionListener(this);
-      jmiExit.addActionListener(this);
-      jbSend.addActionListener(this);
+      //TODO: Move ActionListeners to the client class?
+      jmiDisconnect.addActionListener(client);
+      jmiExit.addActionListener(client);
+      jbSend.addActionListener(client);
 
 
       //last step -- display frame
