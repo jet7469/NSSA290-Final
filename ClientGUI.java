@@ -1,7 +1,6 @@
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
@@ -12,16 +11,21 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
-public class ClientGUI extends JFrame implements ActionListener {
+
+public class ClientGUI extends JFrame {
    
    private JMenuBar jmb;
    private JMenu jmFile;
-   protected JMenuItem jmiDisconnect;
    protected JMenuItem jmiExit;
    
    private JPanel jpChat;
    protected JTextPane jtpChat;
+   private StyledDocument doc;
    private JScrollPane jspChat;
   
    private JPanel jpControls;
@@ -43,8 +47,6 @@ public class ClientGUI extends JFrame implements ActionListener {
       setJMenuBar(jmb);
       jmFile = new JMenu("File");
       jmb.add(jmFile);
-      jmiDisconnect = new JMenuItem("Disconnect");
-      jmFile.add(jmiDisconnect);
       jmiExit = new JMenuItem("Exit");
       jmFile.add(jmiExit);
       
@@ -52,6 +54,7 @@ public class ClientGUI extends JFrame implements ActionListener {
       //chat area
       jpChat = new JPanel();
       jtpChat = new JTextPane();
+      doc = jtpChat.getStyledDocument();
       jpChat.setLayout(null);
       jpChat.setSize(new Dimension(700, 450));
       jtpChat.setEditable(false);
@@ -73,41 +76,47 @@ public class ClientGUI extends JFrame implements ActionListener {
       add(jpControls, BorderLayout.SOUTH);
       
       
-      //actionlisteners
-      //TODO: Move ActionListeners to the client class?
-      jmiDisconnect.addActionListener(client);
+      //add actionlisteners
       jmiExit.addActionListener(client);
       jbSend.addActionListener(client);
 
-
-      //last step -- display frame
-      setVisible(true);
-           
+      //display frame
+      setVisible(true);         
    }
    
-   public void actionPerformed(ActionEvent ae) {
-      Object choice = ae.getSource();
+   /**
+    * Insert formatted text for messages from server
+    * Sets color to red to distinguish from chat messages
+    *
+    * @param String msg    The message from the server
+    */
+   public void insertServerMsg(String msg) {
+      Style serverStyle = jtpChat.addStyle("Server Messages", null);
+      StyleConstants.setForeground(serverStyle, Color.red);
       
-      if (choice == jmiExit) {
-         //show confirmation and then close if yes
-         int n = JOptionPane.showConfirmDialog(null, "Are you sure you want to exit?",
-                                               "Confirm Exit", JOptionPane.YES_NO_OPTION);
-                                                    
-         if (n == 0) {
-            System.exit(0);
-         }
-      
-      } else if (choice == jmiDisconnect) {
-         //show confirmation and then reset everything
-         int m = JOptionPane.showConfirmDialog(null, "Are you sure you want to disconnect?",
-                                               "Confirm Disconnect", JOptionPane.YES_NO_OPTION);
-                                               
-         if (m == 0) {
-            //TODO: reset everything and go back to original screen
-         }
-      } else if (choice == jbSend) {
-         //TODO: send message
+      try {
+         doc.insertString(doc.getLength(), "\n" + msg, serverStyle);
+      } catch (BadLocationException ble) {
+         ble.printStackTrace();
       }
    }
-
+   
+   /**
+    * Insert formatted text for chat messages
+    * Sets user's own text blue for readability
+    *
+    * @param String msg       The chat message
+    */
+   public void insertChatMsg(String msg) {
+      Style userStyle = jtpChat.addStyle("Chat Username", null);
+      StyleConstants.setForeground(userStyle, Color.black);
+      
+      try {
+         doc.insertString(doc.getLength(), "\n" + msg, userStyle);
+      } catch (BadLocationException ble) {
+         ble.printStackTrace();
+      }
+   
+   }
+   
 }

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.util.Vector;
@@ -13,14 +14,18 @@ public class Server {
 
    private ServerSocket ss = null;
    private Socket cs = null;
-
+   private int port = 16789;
+   
+   //Keep list of one printwriter per client
+   private Vector <PrintWriter> writers = new Vector <PrintWriter>();
+   
    /**
     * Class constructor
-    * Copied from Week 12 Slides - Page 14
     */
    public Server() {
       try {
-         ss = new ServerSocket(16789);
+         ss = new ServerSocket(port);
+         System.out.println("Now listening on host " + InetAddress.getByName("localhost") + " and port " + port);
          
          while (true) {
             //get connection
@@ -31,7 +36,6 @@ public class Server {
             ts.start();  
          } 
       } catch(IOException ioe) {
-         System.out.println("ioe catch");
          ioe.printStackTrace();
       }
    }
@@ -49,26 +53,56 @@ public class Server {
     */
    class ThreadServer extends Thread {
       Socket cs;
+      BufferedReader br;
+      PrintWriter pw;
 
       public ThreadServer(Socket cs) {
          this.cs = cs;
       }  
       
       public void run() {
-         BufferedReader br;
-         PrintWriter pw;
-         String clientMsg;
          try {
             br = new BufferedReader(new InputStreamReader(cs.getInputStream()));
             pw = new PrintWriter(new OutputStreamWriter(cs.getOutputStream()));
+                        
+            //Give connection message and add user to client list
+            pw.println(">>> Welcome to the chat");
+            pw.flush();
+            writers.add(pw);
             
-            clientMsg = br.readLine();
-            System.out.println("Server read: " + clientMsg);
-            pw.println(clientMsg);
-            pw.flush();                  
+            String username = br.readLine();
+            
+            for (PrintWriter writer : writers) {
+               writer.println(">>> New user " + username + " entered chat room");
+               writer.flush();
+            }
+            
+            while (true) {
+               //get a message
+               String clientMsg = br.readLine();
+               if (clientMsg == null) {
+                  return;
+               }
+               
+               //send message to all chat users
+               for (PrintWriter writer : writers) {
+                  writer.println(clientMsg);
+                  writer.flush();
+               }
+            }              
          }
          catch(IOException ioe) {
             ioe.printStackTrace();
+         } finally {
+            if (pw != null) {
+               writers.remove(pw);  
+            }
+            
+            try {
+               cs.close();
+            } catch (IOException ioe) {
+               ioe.printStackTrace();    
+            }
          }
       }
 
