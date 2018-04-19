@@ -58,6 +58,8 @@ public class Client implements ActionListener {
       //TODO: Connection happens here
       try {
          System.out.println("Now contacting Server '" + host + "' with TCP/IP connection from client TCP/IP address");
+         //THIS IS THE CONNECTION FOR TCP/IP; NEED AN IF CHECKING THE PROTOCOL
+         //anywhere with something with s will have to change (UDP version)
          s = new Socket(host, port);
          ps = new PrintStream(s.getOutputStream());
          dis = new DataInputStream(s.getInputStream());
@@ -69,6 +71,8 @@ public class Client implements ActionListener {
       }
       
       if (s != null && ps != null && dis != null) {
+      //CHANGE THE s
+      //RENAME CLIENT THREAD TO TCPClientThread AND MAKE A COPY CALLED UDPClientThread and CHNAGE THE CODE WITH DATAGRAMS
          ClientThread ct = new ClientThread(s, gui);
          ct.start();   
       }
@@ -154,6 +158,9 @@ public class Client implements ActionListener {
       }     
    }
    
+   //UDP CLIENT DATAGRAM SEND MESSAGE SLIDE
+   //MIGHT NEED A THREAD
+   
    
    /**
     * Inner Client Thread class
@@ -163,6 +170,7 @@ public class Client implements ActionListener {
       Socket s;
       ClientGUI gui;
    
+      //CANT PASS IN A SOCKET IN THE UDP VERSION
       public ClientThread(Socket s, ClientGUI gui) {
          this.s = s;
          this.gui = gui;

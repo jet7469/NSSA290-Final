@@ -19,9 +19,13 @@ public class Server {
    //Keep list of one printwriter per client
    private Vector <PrintWriter> writers = new Vector <PrintWriter>();
    
+   //NEED A UDP SERVER BUT DONT NEED A THREAD?
+   //RECIEVE MESSAGE SLIDE HERE
+   
    /**
     * Class constructor
     */
+    //TCP SERVER
    public Server() {
       try {
          ss = new ServerSocket(port);
@@ -51,6 +55,7 @@ public class Server {
     * Opens Input/Output Streams for each client
     * Copied from Week 12 Slides - Page 15
     */
+    
    class ThreadServer extends Thread {
       Socket cs;
       BufferedReader br;
