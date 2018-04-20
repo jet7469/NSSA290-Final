@@ -19,6 +19,8 @@ import javax.swing.JTextPane;
 public class Client implements ActionListener {
 
    private Socket s = null; 
+   private DatagramSocket ds = null;
+   private DatagramPacket dp = null;
    private BufferedReader br;
    private PrintWriter pw;
    private PrintStream ps;
@@ -57,25 +59,37 @@ public class Client implements ActionListener {
       
       //TODO: Connection happens here
       try {
-         System.out.println("Now contacting Server '" + host + "' with TCP/IP connection from client TCP/IP address");
-         //THIS IS THE CONNECTION FOR TCP/IP; NEED AN IF CHECKING THE PROTOCOL
-         //anywhere with something with s will have to change (UDP version)
-         s = new Socket(host, port);
-         ps = new PrintStream(s.getOutputStream());
-         dis = new DataInputStream(s.getInputStream());
-         System.out.println("Receiving communication from server using host '" + host
-                        + "' and port " + port);
+         if(protocol == TCP_PROTOCOL){
+            System.out.println("Now contacting Server '" + host + "' with TCP/IP connection from client TCP/IP address");
+            //THIS IS THE CONNECTION FOR TCP/IP; NEED AN IF CHECKING THE PROTOCOL
+            //anywhere with something with s will have to change (UDP version)
+            s = new Socket(host, port);
+            ps = new PrintStream(s.getOutputStream());
+            dis = new DataInputStream(s.getInputStream());
+            System.out.println("Receiving communication from server using host '" + host
+                           + "' and port " + port);
+         }else if(protocol == UDP_PROTOCOL){
+            ds = new DatagramSocket(port);
+            dp = new DatagramPacket(new byte[1024], 1024);
+            
+         }
                   
       } catch (IOException ioe) {
          ioe.printStackTrace();
       }
-      
-      if (s != null && ps != null && dis != null) {
-      //CHANGE THE s
-      //RENAME CLIENT THREAD TO TCPClientThread AND MAKE A COPY CALLED UDPClientThread and CHNAGE THE CODE WITH DATAGRAMS
-         ClientThread ct = new ClientThread(s, gui);
-         ct.start();   
+      if(protocol == TCP_PROTOCOL){
+         if (s != null && ps != null && dis != null) {
+         //CHANGE THE s
+         //RENAME CLIENT THREAD TO TCPClientThread AND MAKE A COPY CALLED UDPClientThread and CHNAGE THE CODE WITH DATAGRAMS
+            ClientThread ct = new ClientThread(s, gui);
+            ct.start();   
+         }
+      }else if(protocol == UDP_PROTOCOL){
+         if(ds != null && dp != null){
+         
+         }
       }
+       
 
    }
    
@@ -167,8 +181,9 @@ public class Client implements ActionListener {
     */
    class ClientThread extends Thread {
       
-      Socket s;
+      Socket s = null;
       ClientGUI gui;
+      DatagramSocket ds = null;
    
       //CANT PASS IN A SOCKET IN THE UDP VERSION
       public ClientThread(Socket s, ClientGUI gui) {
@@ -176,21 +191,46 @@ public class Client implements ActionListener {
          this.gui = gui;
       }
       
+      //UDP
+      public ClientThread(DatagramSocket ds, ClientGUI gui){
+         this.ds = ds;
+         this.gui = gui;
+      }
+      
       public void run() {
          try {
-            br = new BufferedReader(new InputStreamReader(s.getInputStream()));
-            
-            //send over username
-            ps.println("" + username);
-            ps.flush();
-            
             String serverMsg;
-            while((serverMsg = br.readLine()) != null) {
-               if (serverMsg.startsWith(">>>")) {
-                  gui.insertServerMsg(serverMsg);
-               } else {
-                  gui.insertChatMsg(serverMsg);
-               }          
+            if(s != null){
+               br = new BufferedReader(new InputStreamReader(s.getInputStream()));
+               
+               //send over username
+               ps.println("" + username);
+               ps.flush();
+               
+               
+               while((serverMsg = br.readLine()) != null) {
+                  if (serverMsg.startsWith(">>>")) {
+                     gui.insertServerMsg(serverMsg);
+                  } else {
+                     gui.insertChatMsg(serverMsg);
+                  }          
+               }
+            }else if(ds != null){
+               boolean done = false;
+               DatagramPacket dp = new DatagramPacket(new byte[1024], 1024);
+               while(!done){
+                  ds.recieve(packet);
+                  serverMsg = new String(dp.getData());
+                  if(serverMsg.equals("")){
+                     done = true;
+                  }
+                  serverMsg.trim()
+                  if (serverMsg.startsWith(">>>")) {
+                     gui.insertServerMsg(serverMsg);
+                  } else {
+                     gui.insertChatMsg(serverMsg);
+                  }   
+               }
             }
          
          }
