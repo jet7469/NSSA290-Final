@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.ServerSocket;
@@ -14,7 +16,8 @@ public class Server {
 
    private ServerSocket ss = null;
    private Socket cs = null;
-   private int port = 16789;
+   private int tcpPort = 16789;
+   private int udpPort = 5665;
    
    //Keep list of one printwriter per client
    private Vector <PrintWriter> writers = new Vector <PrintWriter>();
@@ -28,17 +31,37 @@ public class Server {
     //TCP SERVER
    public Server() {
       try {
-         ss = new ServerSocket(port);
-         System.out.println("Now listening on host " + InetAddress.getByName("localhost") + " and port " + port);
+         //start up tcp stuff
+         ss = new ServerSocket(tcpPort);
+         System.out.println("Now listening on TCP host " + InetAddress.getByName("localhost") + " and port " + tcpPort);
+         
+         //Need the thread to wait for tcp connections
+         //so it doesn't get stuck waiting on ss.accept();
+         TCPThread tt = new TCPThread(ss);
+         tt.start();
+         
+         //udp stuff
+         DatagramSocket ds = new DatagramSocket(udpPort);
+         System.out.println("Now listening on UDP port " + udpPort);
+         byte receiveData[] = new byte[1024];
+         byte sendData[] = new byte[1024];
          
          while (true) {
-            //get connection
-            cs = ss.accept();
-                                    
-            //create ThreadServer object & start it
-            ThreadServer ts = new ThreadServer(cs);
-            ts.start();  
-         } 
+            DatagramPacket getdp = new DatagramPacket(receiveData, receiveData.length);
+            ds.receive(getdp);
+            String msgStr = new String(getdp.getData());
+            System.out.println("Received UDP msg: " + msgStr.trim());
+            InetAddress ipAddr = getdp.getAddress();
+            int port = getdp.getPort();
+            
+            //send it to everyone?
+            sendData = getdp.getData();
+            DatagramPacket senddp = new DatagramPacket(sendData, sendData.length, ipAddr, port);
+            //I can't tell if it's sending or not?
+            ds.send(senddp);         
+         }
+        
+         
       } catch(IOException ioe) {
          ioe.printStackTrace();
       }
@@ -50,12 +73,40 @@ public class Server {
    public static void main (String [] args) {
       new Server(); 
    }
+    
    
+   /*
+    * Thread to listen for TCP connections
+    * So it doesn't get stuck on accept()
+    * Starts ThreadServer when a connection is made
+    */
+   class TCPThread extends Thread {
+      
+      ServerSocket ss;
+      Socket cs;
+      
+      public TCPThread(ServerSocket ss) {
+         this.ss = ss;
+      }
+      
+      public void run() {
+         while (true) {
+            try {
+               cs = ss.accept();
+               
+               ThreadServer ts = new ThreadServer(cs);
+               ts.start();
+            } catch (IOException ioe) {
+               ioe.printStackTrace();
+            }
+         }
+      }
+   
+   }
+    
    /**
     * Opens Input/Output Streams for each client
-    * Copied from Week 12 Slides - Page 15
     */
-    
    class ThreadServer extends Thread {
       Socket cs;
       BufferedReader br;

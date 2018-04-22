@@ -8,13 +8,18 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+
 
 public class Client implements ActionListener {
 
@@ -68,9 +73,9 @@ public class Client implements ActionListener {
             dis = new DataInputStream(s.getInputStream());
             System.out.println("Receiving communication from server using host '" + host
                            + "' and port " + port);
-         }else if(protocol == UDP_PROTOCOL){
-            ds = new DatagramSocket(port);
-            dp = new DatagramPacket(new byte[1024], 1024);
+         } else if(protocol == UDP_PROTOCOL) {
+            //ds = new DatagramSocket(port);
+            //dp = new DatagramPacket(new byte[1024], 1024);
             
          }
                   
@@ -84,10 +89,11 @@ public class Client implements ActionListener {
             ClientThread ct = new ClientThread(s, gui);
             ct.start();   
          }
-      }else if(protocol == UDP_PROTOCOL){
-         if(ds != null && dp != null){
-         
-         }
+      } else if(protocol == UDP_PROTOCOL) {
+         //if(ds != null && dp != null){
+         ClientThread ct2 = new ClientThread(gui);
+         ct2.start();
+         //}
       }
        
 
@@ -124,10 +130,10 @@ public class Client implements ActionListener {
          protocol = UDP_PROTOCOL;
       }
       
-      //TODO: Another dialog asking which server to connect to
-      //when the user selects TCP as connection protocol
+      port = Integer.parseInt(JOptionPane.showInputDialog(gui, "Enter Port Number:"));
+
+      //get hostname if TCP
       if (protocol == TCP_PROTOCOL) {
-          port = Integer.parseInt(JOptionPane.showInputDialog(gui, "Enter Port Number:"));
           host = (String) JOptionPane.showInputDialog(gui, "Enter Hostname:");
       }            
    }
@@ -154,8 +160,25 @@ public class Client implements ActionListener {
 
                
          //send it as a string msg with a username
-         ps.println(text);
-         ps.flush();
+         if (protocol == TCP_PROTOCOL) {
+            ps.println(text);
+            ps.flush();
+         } else if (protocol == UDP_PROTOCOL) {
+            try {
+               byte[] data = text.getBytes();
+               InetAddress addr = InetAddress.getByName("localhost");
+               DatagramPacket pack = new DatagramPacket(data, data.length, addr, port);
+               DatagramSocket ds = new DatagramSocket();
+               ds.send(pack);
+               ds.close();
+            } catch (UnknownHostException uhe) {
+               uhe.printStackTrace();
+            } catch (SocketException se) {
+               se.printStackTrace();
+            } catch (IOException ioe) {
+               ioe.printStackTrace();
+            }
+         }
          
          jtaMessage.setText("");
                               
@@ -183,17 +206,17 @@ public class Client implements ActionListener {
       
       Socket s = null;
       ClientGUI gui;
-      DatagramSocket ds = null;
+      //DatagramSocket ds = null;
    
-      //CANT PASS IN A SOCKET IN THE UDP VERSION
+      //TCP
       public ClientThread(Socket s, ClientGUI gui) {
          this.s = s;
          this.gui = gui;
       }
       
       //UDP
-      public ClientThread(DatagramSocket ds, ClientGUI gui){
-         this.ds = ds;
+      public ClientThread(ClientGUI gui){
+         //this.ds = ds;
          this.gui = gui;
       }
       
@@ -203,28 +226,29 @@ public class Client implements ActionListener {
             if(s != null){
                br = new BufferedReader(new InputStreamReader(s.getInputStream()));
                
+               
                //send over username
                ps.println("" + username);
                ps.flush();
                
                
-               while((serverMsg = br.readLine()) != null) {
+               while ((serverMsg = br.readLine()) != null) {
                   if (serverMsg.startsWith(">>>")) {
                      gui.insertServerMsg(serverMsg);
                   } else {
                      gui.insertChatMsg(serverMsg);
                   }          
                }
-            }else if(ds != null){
+            } else if(ds != null) {
                boolean done = false;
                DatagramPacket dp = new DatagramPacket(new byte[1024], 1024);
                while(!done){
-                  ds.recieve(packet);
+                  ds.receive(dp);
                   serverMsg = new String(dp.getData());
                   if(serverMsg.equals("")){
                      done = true;
                   }
-                  serverMsg.trim()
+                  serverMsg.trim();
                   if (serverMsg.startsWith(">>>")) {
                      gui.insertServerMsg(serverMsg);
                   } else {
