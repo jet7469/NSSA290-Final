@@ -11,6 +11,7 @@ import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.MulticastSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -33,7 +34,8 @@ public class Client implements ActionListener {
    private String username;
    private String host;
    private int port;
-   byte[] sendData = new byte[1024];
+   private int newPort;
+   private DatagramSocket receiveSocket;
    
    //The GUI stuff
    private ClientGUI gui;
@@ -63,38 +65,47 @@ public class Client implements ActionListener {
       
       getConnectInfo(); //show various connection dialogs for user
       
-      //TODO: Connection happens here
+      //Make the connections with the info you get from user
       try {
          if(protocol == TCP_PROTOCOL){
             System.out.println("Now contacting Server '" + host + "' with TCP/IP connection from client TCP/IP address");
-            //THIS IS THE CONNECTION FOR TCP/IP; NEED AN IF CHECKING THE PROTOCOL
-            //anywhere with something with s will have to change (UDP version)
             s = new Socket(host, port);
             ps = new PrintStream(s.getOutputStream());
             dis = new DataInputStream(s.getInputStream());
             System.out.println("Receiving communication from server using host '" + host
                            + "' and port " + port);
          } else if(protocol == UDP_PROTOCOL) {
-            ds = new DatagramSocket();
-            //I dont know if this is right or not
-            //Should there be a new Datagram socket every time a msg is sent/received?
-         }
-                  
+            //send connect info to socket on server side
+            System.out.println("Now contacting Server with UDP connection");
+            DatagramSocket ds = new DatagramSocket();
+            String newConn = "new connection";
+            byte[] connMsg = newConn.getBytes();
+            DatagramPacket dp = new DatagramPacket(connMsg, connMsg.length, InetAddress.getByName("localhost"), port);
+            ds.send(dp);
+            //wait for response with port number
+            dp = new DatagramPacket(new byte[1024], 1024);
+            ds.receive(dp);
+            System.out.println("Received connection from server using port " + port);
+            gui.insertServerMsg(">>>Welcome to the chat room");
+            String portMsg = new String(dp.getData());
+            newPort = Integer.parseInt(portMsg.trim());
+            receiveSocket = new DatagramSocket(newPort);
+         }          
       } catch (IOException ioe) {
          ioe.printStackTrace();
       }
       
+      //Start correct threads
       if(protocol == TCP_PROTOCOL){
          if (s != null && ps != null && dis != null) {
-         //CHANGE THE s
-         //RENAME CLIENT THREAD TO TCPClientThread AND MAKE A COPY CALLED UDPClientThread and CHNAGE THE CODE WITH DATAGRAMS
             ClientThread ct = new ClientThread(s, gui);
-            ct.start();   
+            ct.start();
+            System.out.println("TCP Thread started");   
          }
       } else if(protocol == UDP_PROTOCOL) {
-         ClientThread ct2 = new ClientThread(gui, ds);
+         ClientThread ct2 = new ClientThread(gui, receiveSocket);
          ct2.start();
-         System.out.println("Thread started");
+         System.out.println("UDP Thread started");
       }
    }
    
@@ -164,23 +175,13 @@ public class Client implements ActionListener {
             ps.flush();
          } else if (protocol == UDP_PROTOCOL) {
             try {
+               byte[] sendData = new byte[1024];
                sendData = text.getBytes();
                InetAddress addr = InetAddress.getByName("localhost");
-               DatagramPacket sendPack = new DatagramPacket(sendData, sendData.length, addr, port);
                DatagramSocket ds = new DatagramSocket();
+               DatagramPacket sendPack = new DatagramPacket(sendData, sendData.length, addr, port);
                ds.send(sendPack);
                System.out.println("Sent message to server");
-               
-               
-               //If below is uncommented, the user immediately receives their own message back,
-               //But it doesn't go to anyone else
-               
-               //DatagramPacket receivePack = new DatagramPacket(receiveData, receiveData.length);
-               //ds.receive(receivePack);
-               //String msgBack = new String(receivePack.getData());
-               //gui.insertChatMsg(msgBack);
-               
-               ds.close();
             } catch (UnknownHostException uhe) {
                uhe.printStackTrace();
             } catch (SocketException se) {
@@ -239,7 +240,6 @@ public class Client implements ActionListener {
                //send over username
                ps.println("" + username);
                ps.flush();
-               
                
                while ((serverMsg = br.readLine()) != null) {
                   if (serverMsg.startsWith(">>>")) {

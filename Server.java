@@ -19,48 +19,37 @@ public class Server {
    private int tcpPort = 16789;
    private int udpPort = 5665;
    
+   
    //Keep list of one printwriter per client
    private Vector <PrintWriter> writers = new Vector <PrintWriter>();
    
-   //NEED A UDP SERVER BUT DONT NEED A THREAD?
-   //RECIEVE MESSAGE SLIDE HERE
+   //Keep list of ports for each client
+   private Vector <Integer> ports = new Vector <Integer>();
+   
+   //Starting port number for each client
+   //Increment for each new connection
+   private int udpPortNums = 5665;
    
    /**
     * Class constructor
     */
-    //TCP SERVER
    public Server() {
       try {
          //start up tcp stuff
          ss = new ServerSocket(tcpPort);
          System.out.println("Now listening on TCP host " + InetAddress.getByName("localhost") + " and port " + tcpPort);
          
-         //Need the thread to wait for tcp connections
-         //so it doesn't get stuck waiting on ss.accept();
+         //Thread to wait for TCP connections
          TCPThread tt = new TCPThread(ss);
          tt.start();
          
-         //udp stuff
+         //Open DatagramSocket with the connection port
          DatagramSocket ds = new DatagramSocket(udpPort);
          System.out.println("Now listening on UDP port " + udpPort);
-         byte receiveData[] = new byte[1024];
-         byte sendData[] = new byte[1024];
          
-         while (true) {
-            DatagramPacket getdp = new DatagramPacket(receiveData, receiveData.length);
-            ds.receive(getdp);
-            String msgStr = new String(getdp.getData());
-            System.out.println("Received UDP msg: " + msgStr.trim());
-            InetAddress ipAddr = getdp.getAddress();
-            int port = getdp.getPort();
-            
-            //send it to everyone?
-            sendData = getdp.getData();
-            DatagramPacket senddp = new DatagramPacket(sendData, sendData.length, ipAddr, port);
-            //I can't tell if it's sending or not?
-            ds.send(senddp);         
-         }
-        
+         //Thread to wait for UDP connections
+         UDPThread ut = new UDPThread(ds);
+         ut.start();          
          
       } catch(IOException ioe) {
          ioe.printStackTrace();
@@ -73,7 +62,64 @@ public class Server {
    public static void main (String [] args) {
       new Server(); 
    }
-    
+   
+   
+   /**
+    * Thread for UDP connections
+    * Waits for a DatagramPacket
+    * Starts new connection if message is "new connection"
+    * Sends message to all clients if else
+    *
+    * @param DatagramSocket ds   the socket for the server to get messages 
+    */
+   class UDPThread extends Thread {
+      DatagramSocket ds;
+
+      public UDPThread(DatagramSocket ds) {
+         this.ds = ds;
+      }
+      
+      public void run() {
+         try {
+            while (true) {
+               //DatagramSocket waits to receive messages
+               DatagramPacket getdp = new DatagramPacket(new byte[1024], 1024);
+               ds.receive(getdp);
+               String msg = new String(getdp.getData());
+               
+               //if "new connection" user just connected
+               //give them a unique port and add it to list
+               if (msg.trim().equals("new connection")) {
+                  System.out.println("Received UDP connection");
+                  DatagramSocket newDS = new DatagramSocket();
+                  udpPortNums++;
+                  System.out.println("New port for user: " + udpPortNums);
+                  ports.add(udpPortNums);
+                  byte[] portNum = new byte[1024];
+                  portNum = new String("" + udpPortNums).getBytes();
+                  DatagramPacket newDp = new DatagramPacket(portNum, portNum.length, InetAddress.getByName("localhost"), getdp.getPort()); 
+                  newDS.send(newDp);
+                  newDS.close();                     
+               } else {
+                  // got a chat message from one of the clients
+                  System.out.println("Received UDP msg: " + msg.trim());
+                  InetAddress ipAddr = InetAddress.getByName("localhost");
+                  byte[] sendData = getdp.getData();
+                  
+                  //Send message to all ports
+                  //Really don't know if this is how you're supposed to do it
+                  //But hey I tried
+                  for (int port : ports) {
+                     DatagramPacket sendDp = new DatagramPacket(sendData, sendData.length, ipAddr, port);
+                     ds.send(sendDp);
+                  }                             
+               } 
+            }
+         } catch (IOException ioe) {
+            ioe.printStackTrace();
+         }
+      }
+   }
    
    /*
     * Thread to listen for TCP connections
