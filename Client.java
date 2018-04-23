@@ -33,6 +33,7 @@ public class Client implements ActionListener {
    private String username;
    private String host;
    private int port;
+   byte[] sendData = new byte[1024];
    
    //The GUI stuff
    private ClientGUI gui;
@@ -74,14 +75,15 @@ public class Client implements ActionListener {
             System.out.println("Receiving communication from server using host '" + host
                            + "' and port " + port);
          } else if(protocol == UDP_PROTOCOL) {
-            //ds = new DatagramSocket(port);
-            //dp = new DatagramPacket(new byte[1024], 1024);
-            
+            ds = new DatagramSocket();
+            //I dont know if this is right or not
+            //Should there be a new Datagram socket every time a msg is sent/received?
          }
                   
       } catch (IOException ioe) {
          ioe.printStackTrace();
       }
+      
       if(protocol == TCP_PROTOCOL){
          if (s != null && ps != null && dis != null) {
          //CHANGE THE s
@@ -90,13 +92,10 @@ public class Client implements ActionListener {
             ct.start();   
          }
       } else if(protocol == UDP_PROTOCOL) {
-         //if(ds != null && dp != null){
-         ClientThread ct2 = new ClientThread(gui);
+         ClientThread ct2 = new ClientThread(gui, ds);
          ct2.start();
-         //}
+         System.out.println("Thread started");
       }
-       
-
    }
    
    
@@ -165,11 +164,22 @@ public class Client implements ActionListener {
             ps.flush();
          } else if (protocol == UDP_PROTOCOL) {
             try {
-               byte[] data = text.getBytes();
+               sendData = text.getBytes();
                InetAddress addr = InetAddress.getByName("localhost");
-               DatagramPacket pack = new DatagramPacket(data, data.length, addr, port);
+               DatagramPacket sendPack = new DatagramPacket(sendData, sendData.length, addr, port);
                DatagramSocket ds = new DatagramSocket();
-               ds.send(pack);
+               ds.send(sendPack);
+               System.out.println("Sent message to server");
+               
+               
+               //If below is uncommented, the user immediately receives their own message back,
+               //But it doesn't go to anyone else
+               
+               //DatagramPacket receivePack = new DatagramPacket(receiveData, receiveData.length);
+               //ds.receive(receivePack);
+               //String msgBack = new String(receivePack.getData());
+               //gui.insertChatMsg(msgBack);
+               
                ds.close();
             } catch (UnknownHostException uhe) {
                uhe.printStackTrace();
@@ -206,7 +216,7 @@ public class Client implements ActionListener {
       
       Socket s = null;
       ClientGUI gui;
-      //DatagramSocket ds = null;
+      DatagramSocket ds;
    
       //TCP
       public ClientThread(Socket s, ClientGUI gui) {
@@ -215,9 +225,9 @@ public class Client implements ActionListener {
       }
       
       //UDP
-      public ClientThread(ClientGUI gui){
-         //this.ds = ds;
+      public ClientThread(ClientGUI gui, DatagramSocket ds){
          this.gui = gui;
+         this.ds = ds;
       }
       
       public void run() {
@@ -225,7 +235,6 @@ public class Client implements ActionListener {
             String serverMsg;
             if(s != null){
                br = new BufferedReader(new InputStreamReader(s.getInputStream()));
-               
                
                //send over username
                ps.println("" + username);
@@ -239,10 +248,12 @@ public class Client implements ActionListener {
                      gui.insertChatMsg(serverMsg);
                   }          
                }
-            } else if(ds != null) {
+            } else if (ds != null) {
+               byte[] receiveData = new byte[1024];
                boolean done = false;
-               DatagramPacket dp = new DatagramPacket(new byte[1024], 1024);
+               
                while(!done){
+                  DatagramPacket dp = new DatagramPacket(receiveData, receiveData.length);
                   ds.receive(dp);
                   serverMsg = new String(dp.getData());
                   if(serverMsg.equals("")){
@@ -253,7 +264,7 @@ public class Client implements ActionListener {
                      gui.insertServerMsg(serverMsg);
                   } else {
                      gui.insertChatMsg(serverMsg);
-                  }   
+                  } 
                }
             }
          
